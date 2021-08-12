@@ -16,6 +16,9 @@
 /* how many pending connections queue will hold */
 #define BACKLOG 10
 
+// max number of bytes we can get at once
+#define MAXDATASIZE 300
+
 void sigchld_handler(int s){
   while(wait(NULL) > 0);
 }
@@ -29,9 +32,12 @@ int main(int argc, char *argv[ ]){
 
   /* connectors address information */
   struct sockaddr_in their_addr;
-  int sin_size;
+  int sin_size, numbytes;
   struct sigaction sa;
   int yes = 1;
+
+  // Declare buffer to store info received from client
+  char buf[MAXDATASIZE];
 
   if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1){
     perror("Server-socket() error lol!");
@@ -99,13 +105,20 @@ int main(int argc, char *argv[ ]){
     if(!fork()){
       /* child doesnt need the listener */
       close(sockfd);
-      if(send(new_fd, "This is a test string from server!\n", 37, 0) == -1)
-        perror("Server-send() error lol!");
+      
+      if((numbytes = recv(new_fd, buf, MAXDATASIZE-1, 0)) == -1){
+        perror("recv()");
+        exit(1);
+      }
+      else
+        printf("Client-The recv() is OK...\n");
+
+      buf[numbytes] = '\0';
+      printf("Server-Received: %s", buf);
+      printf("Server-Closing new_fd\n");
       close(new_fd);
       exit(0);
     }
-    else
-      printf("Server-send is OK...!\n");
 
     /* parent doesnt need this */
     close(new_fd);

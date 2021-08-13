@@ -10,6 +10,7 @@
 #include <sys/wait.h>
 #include <signal.h>
 #include <string.h>
+#include <ctype.h>
 
 /* the port users will be connecting to */
 #define MYPORT 3490
@@ -20,25 +21,17 @@
 // max number of bytes we can get at once
 #define MAXDATASIZE 300
 
-void sigchld_handler(int s){
+void sigchld_handler(int s) {
   while(wait(NULL) > 0);
 }
 
-int main(int argc, char *argv[ ]){
-  /* listen on sock_fd, new connection on new_fd */
-  int sockfd, new_fd;
+int init_server() {
+  int sockfd;
+  int yes = 1;
 
   /* my address information */
   struct sockaddr_in my_addr;
-
-  /* connectors address information */
-  struct sockaddr_in their_addr;
-  int sin_size, numbytes;
   struct sigaction sa;
-  int yes = 1;
-
-  // Declare buffer to store info received from client
-  char bufentrada[MAXDATASIZE],bufsalida[MAXDATASIZE];
 
   if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1){
     perror("Server-socket() error lol!");
@@ -90,6 +83,83 @@ int main(int argc, char *argv[ ]){
   else
     printf("Server-sigaction() is OK...\n");
 
+  return sockfd;
+}
+
+char *str_to_upper(char *str) {
+  // Convert to upper case
+  char *s = str;
+  if (s) {
+    while (*s) {
+      *s = toupper((unsigned char) *s);
+      s++;
+    }
+  }
+}
+
+void handle_client_connection(int new_fd) {
+  int numbytes;
+  char *token, *raw_token;
+  char *buffentrada = (char *) calloc(MAXDATASIZE, sizeof(char));
+
+  while(1){
+    //if((numbytes = recv(new_fd, buffentrada, MAXDATASIZE-1, 0)) == -1){
+    if(recv(new_fd, buffentrada, MAXDATASIZE-1, 0) == -1){
+      perror("Error reading from client connection\n");
+      exit(1);
+    }
+
+    token = strtok(buffentrada, " "); //divide la cadena
+    // After reading the command received, it reads an empty buff
+    // so just ommit this empty buff and wait for the other command sent by
+    // client
+    if (!token)
+      continue;
+    // Normalize to uppercase command
+    // As is a refered argument, change is made on token itself
+    str_to_upper(token);
+
+    if(strcmp(token,"INSERT") == 0){
+      //Obtiene el siguiente token, son dos palabras en total 
+      token = strtok(NULL, " ");
+      //Codigo insert
+      printf("Comando insert\n");
+      puts(token);
+    }
+    else if(strcmp(token,"SELECT") == 0){
+      //Obtiene el siguiente token, son dos palabras en total 
+      token = strtok(NULL, " ");
+      printf("Comando select\n");
+      puts(token);
+      //Abrir archivo y enviarlo
+    }
+    else if(strcmp(token,"EXIT") == 0){
+      printf("Comando exit\n");
+      puts(token);
+      break;
+    }
+    else{
+      printf("comando no reconocido\n");
+      //Comando no reconocido
+    }
+    // Flushing buffer
+    memset(buffentrada, '\0', sizeof buffentrada);
+  }
+}
+
+int main(int argc, char *argv[ ]){
+  /* listen on sock_fd, new connection on new_fd */
+  int sockfd, new_fd;
+
+  /* connectors address information */
+  struct sockaddr_in their_addr;
+  int sin_size;
+
+  // Declare buffer to store info received from client
+  char buffsalida[MAXDATASIZE];
+
+  sockfd = init_server();
+
   /* accept() loop */
   while(1){
     sin_size = sizeof(struct sockaddr_in);
@@ -97,8 +167,8 @@ int main(int argc, char *argv[ ]){
       perror("Server-accept() error");
       continue;
     }
-    else
-      printf("Server-accept() is OK...\n");
+
+    printf("Server-accept() is OK...\n");
     printf("Server-new socket, new_fd is OK...\n");
     printf("Server: Got connection from %s\n", inet_ntoa(their_addr.sin_addr));
 
@@ -106,31 +176,8 @@ int main(int argc, char *argv[ ]){
     if(!fork()){
       /* child doesnt need the listener */
       close(sockfd);
-      while(1){
-	      if((numbytes = recv(new_fd, bufentrada, MAXDATASIZE-1, 0)) == -1){
-		perror("recv()");
-		exit(1);
-	      }
-	      else{
-		char *token = strtok(bufentrada, " "); //divide la cadena
-		
-		if(token == "INSERT"){
-		    //Codigo insert
-		}else if(token == "SELECT"){
-		    //Obtiene el siguiente token, son dos palabras en total 
-		    token = strtok(NULL, " ");
-		    //Abrir archivo y enviarlo
-		}else if(token == "EXIT"){
-		    //Terminar conexion
-		}else{
-		    //Comando no reconocido
-	        }
-		printf("Client-The recv() is OK...\n");
-	      }
-	      bufentrada[numbytes] = '\0';
-	      printf("Server-Received: %s", bufentrada);
-	      printf("Server-Closing new_fd\n");
-      }
+      handle_client_connection(new_fd);
+      printf("ending connection with client\n");
       close(new_fd);
       exit(0);
     }

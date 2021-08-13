@@ -94,15 +94,20 @@ void validate_arguments(int argc, char *argv[]) {
 
 int main(int argc, char *argv[]){
   int sockfd, numbytes;
-  char bufentrada[MAXDATASIZE],bufsalida[MAXDATASIZE];
+  char buffentrada[MAXDATASIZE], buffsalida[MAXDATASIZE];
 
   validate_arguments(argc, argv);
 
   sockfd = stablish_connection(argv[1], atoi(argv[2]));
   while(1){
-	  scanf("%s",bufsalida);
-	  send(sockfd, bufsalida, sizeof(bufsalida), 0);
-	  //Recibir resultado y mostrarlo
+	  fgets(buffentrada, MAXDATASIZE, stdin);
+    buffentrada[strlen(buffentrada) - 1] = '\0';
+	  if (send(sockfd, buffentrada, sizeof(buffentrada), 0) == -1) {
+      printf("Error sending command to server. Try again\n");  
+    }
+    // Flushing buffer
+    memset(buffentrada, '\0', sizeof buffentrada);
+	  // Procesar aqui tambien comando exit
   }
   printf("Client-Closing sockfd\n");
   close(sockfd);

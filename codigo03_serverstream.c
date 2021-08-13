@@ -9,6 +9,7 @@
 #include <arpa/inet.h>
 #include <sys/wait.h>
 #include <signal.h>
+#include <string.h>
 
 /* the port users will be connecting to */
 #define MYPORT 3490
@@ -37,7 +38,7 @@ int main(int argc, char *argv[ ]){
   int yes = 1;
 
   // Declare buffer to store info received from client
-  char buf[MAXDATASIZE];
+  char bufentrada[MAXDATASIZE],bufsalida[MAXDATASIZE];
 
   if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1){
     perror("Server-socket() error lol!");
@@ -105,17 +106,31 @@ int main(int argc, char *argv[ ]){
     if(!fork()){
       /* child doesnt need the listener */
       close(sockfd);
-      
-      if((numbytes = recv(new_fd, buf, MAXDATASIZE-1, 0)) == -1){
-        perror("recv()");
-        exit(1);
+      while(1){
+	      if((numbytes = recv(new_fd, bufentrada, MAXDATASIZE-1, 0)) == -1){
+		perror("recv()");
+		exit(1);
+	      }
+	      else{
+		char *token = strtok(bufentrada, " "); //divide la cadena
+		
+		if(token == "INSERT"){
+		    //Codigo insert
+		}else if(token == "SELECT"){
+		    //Obtiene el siguiente token, son dos palabras en total 
+		    token = strtok(NULL, " ");
+		    //Abrir archivo y enviarlo
+		}else if(token == "EXIT"){
+		    //Terminar conexion
+		}else{
+		    //Comando no reconocido
+	        }
+		printf("Client-The recv() is OK...\n");
+	      }
+	      bufentrada[numbytes] = '\0';
+	      printf("Server-Received: %s", bufentrada);
+	      printf("Server-Closing new_fd\n");
       }
-      else
-        printf("Client-The recv() is OK...\n");
-
-      buf[numbytes] = '\0';
-      printf("Server-Received: %s", buf);
-      printf("Server-Closing new_fd\n");
       close(new_fd);
       exit(0);
     }

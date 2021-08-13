@@ -94,15 +94,16 @@ void validate_arguments(int argc, char *argv[]) {
 
 int main(int argc, char *argv[]){
   int sockfd, numbytes;
-  char buf[MAXDATASIZE];
+  char bufentrada[MAXDATASIZE],bufsalida[MAXDATASIZE];
 
   validate_arguments(argc, argv);
 
   sockfd = stablish_connection(argv[1], atoi(argv[2]));
-
-  if(send(sockfd, "This is a test string from client!\n", 37, 0) == -1)
-        perror("Client-send() error lol!");
-
+  while(1){
+	  scanf("%s",bufsalida);
+	  send(sockfd, bufsalida, sizeof(bufsalida), 0);
+	  //Recibir resultado y mostrarlo
+  }
   printf("Client-Closing sockfd\n");
   close(sockfd);
   return 0;

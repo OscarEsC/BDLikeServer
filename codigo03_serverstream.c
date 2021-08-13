@@ -26,6 +26,14 @@ void sigchld_handler(int s) {
 }
 
 int init_server() {
+  /**
+  * Function to start and the server
+  * Arguments:
+  *
+  * Return:
+  *       sockfd      - the socket descriptor    
+  */
+
   int sockfd;
   int yes = 1;
 
@@ -87,7 +95,12 @@ int init_server() {
 }
 
 char *str_to_upper(char *str) {
-  // Convert to upper case
+  /*
+  * Function to convert a string to uppercase
+  * Arguments:
+  *       str   - The string that must convert to uppercase
+  */
+
   char *s = str;
   if (s) {
     while (*s) {
@@ -98,6 +111,11 @@ char *str_to_upper(char *str) {
 }
 
 void handle_client_connection(int new_fd) {
+  /*
+  * Function to handle a new client connection. Processing the commands received from client
+  * Arguments:
+  *       new_fd   - The socket's file descriptor where is the connection with the client
+  */
   int numbytes;
   char *token, *raw_token;
   char *buffentrada = (char *) calloc(MAXDATASIZE, sizeof(char));

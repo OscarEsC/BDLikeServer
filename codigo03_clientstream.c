@@ -15,6 +15,11 @@
 #define MAXDATASIZE 300
 
 void usage(char *argv0) {
+  /**
+  * Function to print the usage of the executable
+  * Arguments:
+  *       argv0   - Executable's name, usually obtained from argv[0]
+  */
   fprintf(stderr, "Invalid arguments");
   fprintf(stderr, "\n");
   printf("Usage: %s <server_hostname> <server_port>\n", argv0);
@@ -23,6 +28,14 @@ void usage(char *argv0) {
 }
 
 int stablish_connection(char *hostname, int port) {
+  /**
+  * Function to start and stablish a connection with the server.
+  * Arguments:
+  *       hostname    - server's hostname
+  *       port        - server's port where it is listening to
+  * Return:
+  *       sockfd      - the socket descriptor    
+  */
   int sockfd;
   struct hostent *he;
   // connectors address information
@@ -92,6 +105,42 @@ void validate_arguments(int argc, char *argv[]) {
 
 }
 
+char *str_to_upper(char *str) {
+  /*
+  * Function to convert a string to uppercase
+  * Arguments:
+  *       str   - The string that must convert to uppercase
+  */
+  char *s = str;
+  if (s) {
+    while (*s) {
+      *s = toupper((unsigned char) *s);
+      s++;
+    }
+  }
+}
+
+int must_exit(char *buffentrada) {
+  /**
+  * Function to validate if the client must finish its execution or not
+  * Arguments:
+  *       buffentrada   - buffer where is stored the input from stdin
+  * Return:
+  *       1 if must ends the execution, 0 therwise
+  */
+
+  char *token;
+
+  //divide la cadena
+  token = strtok(buffentrada, " ");
+  // Normalize to uppercase command
+  // As is a refered argument, change is made on token itself
+  str_to_upper(token);
+
+  // return 1 if its EXIT command
+  return (strcmp(token,"EXIT") == 0) ? 1 : 0;
+}
+
 int main(int argc, char *argv[]){
   int sockfd, numbytes;
   char buffentrada[MAXDATASIZE], buffsalida[MAXDATASIZE];
@@ -105,6 +154,8 @@ int main(int argc, char *argv[]){
 	  if (send(sockfd, buffentrada, sizeof(buffentrada), 0) == -1) {
       printf("Error sending command to server. Try again\n");  
     }
+    if(must_exit(buffentrada))
+      break;
     // Flushing buffer
     memset(buffentrada, '\0', sizeof buffentrada);
 	  // Procesar aqui tambien comando exit

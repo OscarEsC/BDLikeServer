@@ -148,17 +148,28 @@ int main(int argc, char *argv[]){
   validate_arguments(argc, argv);
 
   sockfd = stablish_connection(argv[1], atoi(argv[2]));
+
   while(1){
 	  fgets(buffentrada, MAXDATASIZE, stdin);
     buffentrada[strlen(buffentrada) - 1] = '\0';
+
 	  if (send(sockfd, buffentrada, sizeof(buffentrada), 0) == -1) {
       printf("Error sending command to server. Try again\n");  
     }
     if(must_exit(buffentrada))
       break;
+
+    if((numbytes = recv(sockfd, buffsalida, MAXDATASIZE-1, 0)) == -1){
+      perror("Error reading response from server\n");
+      exit(-1);
+    }
+    printf("%d\n", numbytes);
+    puts(buffsalida);
+
     // Flushing buffer
     memset(buffentrada, '\0', sizeof buffentrada);
-	  // Procesar aqui tambien comando exit
+    memset(buffsalida, '\0', sizeof buffsalida);
+	  
   }
   printf("Client-Closing sockfd\n");
   close(sockfd);

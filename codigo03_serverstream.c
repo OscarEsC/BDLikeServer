@@ -21,6 +21,17 @@
 // max number of bytes we can get at once
 #define MAXDATASIZE 300
 
+/////////////// CONSTANTS //////////////////////////
+char *INVALID_ACC_NUMBER = "The account number argument is not valid.";
+char *INSUFFICIENT_ARGUMENTS = "There is insufficient arguments to this command.";
+char *ERROR_ON_FILE = "Something went wrong when trying writing/reading the file.";
+char *INSERT_OK = "INSERT'S EXECUTION WAS SUCCESSFULLY.";
+
+// Static dir where the files will be stored
+char *dir = "out/";
+
+////////////////////////////////////////////////////
+
 void sigchld_handler(int s) {
   while(wait(NULL) > 0);
 }
@@ -110,6 +121,89 @@ char *str_to_upper(char *str) {
   }
 }
 
+int validate_account_number(char *account_number) {
+  /*
+  * Function to validate if the second argument of a command is a valid account_number
+  * validating that it is just a number, does not matter the length
+  * Arguments:
+  *       account_number   - The number to validate
+  * Return:
+  *       1 if is a valid number, 0 otherwise
+  */
+  return strspn(account_number, "0123456789") == strlen(account_number) ? 1 : 0;
+}
+
+int write_file(char *filename, char *content) {
+  /*
+  * Function to write a string in a file
+  * Arguments:
+  *       filename   - The filename
+  *       content     - What the file must contain
+  * Return:
+  *       1 if everything was ok, -1 if an error happends
+  */
+  puts(content);
+  char *filename_with_dir = (char *) calloc(MAXDATASIZE, sizeof(char));
+  // Concat dir with filename
+  strcat(strcpy(filename_with_dir, dir), filename);
+  FILE *out_file = fopen(filename_with_dir, "w");
+
+  if (out_file == NULL) {
+    puts(ERROR_ON_FILE);
+    return -1;
+  }
+
+  fprintf(out_file, "%s", content);
+  fclose(out_file);
+  return 1;
+}
+
+char *handle_insert(char * buffentrada, char *token) {
+  /*
+  * Function to handle insert command
+  * validating there is all the arguments needed
+  * Arguments:
+  *       buffentrada   - The original string received by the server
+  *       token         - the token pointer to get the next argument
+  * Return:
+  *       message       - A message that could be an error or a successful message
+  */
+  char *name;
+  int starts_at = 0;
+
+  // take the second argument, the account number
+  token = strtok(NULL, " ");
+  // When just 'insert' was sent to the server
+  if (!token) {
+    puts(INSUFFICIENT_ARGUMENTS);
+    return INSUFFICIENT_ARGUMENTS;
+  }
+  // When sent an invalid accoind number
+  if(!validate_account_number(token)) {
+    puts(INVALID_ACC_NUMBER);
+    return INVALID_ACC_NUMBER;
+  }
+
+  // Count the position where the name argument starts.
+  // strlen("insert") + account number length + one space
+  starts_at = 7 + strlen(token) + 1;
+  if ( starts_at >= strlen(buffentrada) ) {
+    puts(INSUFFICIENT_ARGUMENTS);
+    return INSUFFICIENT_ARGUMENTS;
+  }
+  
+  // Alloc memory to store name argument
+  name = (char *) calloc(strlen(buffentrada) - starts_at, sizeof(char));
+  // Copy the name argument to the name buffer
+  memcpy( name, buffentrada + starts_at, (strlen(buffentrada) - starts_at) * sizeof(char) );
+  
+  if ( write_file(token, name) < 0 ) {
+    return ERROR_ON_FILE;
+  }
+
+  return INSERT_OK;
+}
+
 void handle_client_connection(int new_fd) {
   /*
   * Function to handle a new client connection. Processing the commands received from client
@@ -119,15 +213,21 @@ void handle_client_connection(int new_fd) {
   int numbytes;
   char *token, *raw_token;
   char *buffentrada = (char *) calloc(MAXDATASIZE, sizeof(char));
+  char *buffsalida = (char *) calloc(MAXDATASIZE, sizeof(char));
+  char *token_buff = (char *) calloc(MAXDATASIZE, sizeof(char));
 
   while(1){
     //if((numbytes = recv(new_fd, buffentrada, MAXDATASIZE-1, 0)) == -1){
     if(recv(new_fd, buffentrada, MAXDATASIZE-1, 0) == -1){
       perror("Error reading from client connection\n");
-      exit(1);
+      exit(-1);
     }
 
-    token = strtok(buffentrada, " "); //divide la cadena
+    // Coppy buffentrada to another buffer in order to keep
+    // the original received string
+    snprintf(token_buff, MAXDATASIZE, "%s", buffentrada);
+
+    token = strtok(token_buff, " ");
     // After reading the command received, it reads an empty buff
     // so just ommit this empty buff and wait for the other command sent by
     // client
@@ -138,11 +238,14 @@ void handle_client_connection(int new_fd) {
     str_to_upper(token);
 
     if(strcmp(token,"INSERT") == 0){
-      //Obtiene el siguiente token, son dos palabras en total 
-      token = strtok(NULL, " ");
-      //Codigo insert
-      printf("Comando insert\n");
-      puts(token);
+      puts("Handling insert command");
+      snprintf(buffsalida, MAXDATASIZE - 1, "%s", handle_insert(buffentrada, token));
+      puts(buffsalida);
+
+      // Send the message response to client
+      if (send(new_fd, buffsalida, strlen(buffsalida), 0) == -1) {
+        printf("Error sending response to client.\n");  
+      }
     }
     else if(strcmp(token,"SELECT") == 0){
       //Obtiene el siguiente token, son dos palabras en total 
@@ -162,6 +265,7 @@ void handle_client_connection(int new_fd) {
     }
     // Flushing buffer
     memset(buffentrada, '\0', sizeof buffentrada);
+    memset(buffsalida, '\0', sizeof buffsalida);
   }
 }
 
@@ -172,9 +276,6 @@ int main(int argc, char *argv[ ]){
   /* connectors address information */
   struct sockaddr_in their_addr;
   int sin_size;
-
-  // Declare buffer to store info received from client
-  char buffsalida[MAXDATASIZE];
 
   sockfd = init_server();
 

@@ -26,6 +26,10 @@ char *INVALID_ACC_NUMBER = "The account number argument is not valid.";
 char *INSUFFICIENT_ARGUMENTS = "There is insufficient arguments to this command.";
 char *ERROR_ON_FILE = "Something went wrong when trying writing/reading the file.";
 char *INSERT_OK = "INSERT'S EXECUTION WAS SUCCESSFULLY.";
+char *FILE_DOES_NOT_EXISTS = "The file you are looking for does not exists on DB.";
+char *UPDATE_OK = "UPDATE'S EXECUTION WAS SUCCESSFULLY.";
+char *FILE_ALREADY_EXISTS = "The file you are trying to insert already exists on DB.";
+char *DELETE_OK = "DELETE'S EXECUTION WAS SUCCESSFULLY.";
 
 // Static dir where the files will be stored
 char *dir = "out/";
@@ -142,7 +146,6 @@ int write_file(char *filename, char *content) {
   * Return:
   *       1 if everything was ok, -1 if an error happends
   */
-  puts(content);
   char *filename_with_dir = (char *) calloc(MAXDATASIZE, sizeof(char));
   // Concat dir with filename
   strcat(strcpy(filename_with_dir, dir), filename);
@@ -156,6 +159,37 @@ int write_file(char *filename, char *content) {
   fprintf(out_file, "%s", content);
   fclose(out_file);
   return 1;
+}
+
+int delete_file(char *filename) {
+  /*
+  * Function to delete a file
+  * Arguments:
+  *       filename   - The filename
+  * Return:
+  *       0 if everything was ok, -1 if an error happends
+  */
+  char *filename_with_dir = (char *) calloc(MAXDATASIZE, sizeof(char));
+  // Concat dir with filename
+  strcat(strcpy(filename_with_dir, dir), filename);
+  if (remove(filename_with_dir) == 0)
+    return 0;
+  else
+    return -1;
+}
+
+int validate_file_exists(char *filename) {
+  /*
+  * Function to validate if a file exists
+  * Arguments:
+  *         filename        - Filename to check if exists
+  * Return:
+  *         0 if file exists, -1 if not
+  */
+  char *filename_with_dir = (char *) calloc(MAXDATASIZE, sizeof(char));
+  // Concat dir with filename
+  strcat(strcpy(filename_with_dir, dir), filename);
+  return access( filename_with_dir, F_OK ) == 0 ? 0 : -1;
 }
 
 char *handle_insert(char * buffentrada, char *token) {
@@ -184,6 +218,12 @@ char *handle_insert(char * buffentrada, char *token) {
     return INVALID_ACC_NUMBER;
   }
 
+  // Could not insert a file that already exists
+  if(validate_file_exists(token) == 0) {
+    puts(FILE_ALREADY_EXISTS);
+    return FILE_ALREADY_EXISTS;
+  }
+
   // Count the position where the name argument starts.
   // strlen("insert") + account number length + one space
   starts_at = 7 + strlen(token) + 1;
@@ -202,6 +242,91 @@ char *handle_insert(char * buffentrada, char *token) {
   }
 
   return INSERT_OK;
+}
+
+char *handle_update(char *buffentrada, char *token) {
+  /*
+  * Function to handle update command
+  * validating there is all the arguments needed
+  * Arguments:
+  *       buffentrada   - The original string received by the server
+  *       token         - the token pointer to get the next argument
+  * Return:
+  *       message       - A message that could be an error or a successful message
+  */
+  char *name;
+  int starts_at = 0;
+
+  // take the second argument, the account number
+  token = strtok(NULL, " ");
+  // When just 'insert' was sent to the server
+  if (!token) {
+    puts(INSUFFICIENT_ARGUMENTS);
+    return INSUFFICIENT_ARGUMENTS;
+  }
+  // When sent an invalid accoind number
+  if(!validate_account_number(token)) {
+    puts(INVALID_ACC_NUMBER);
+    return INVALID_ACC_NUMBER;
+  }
+  // Could not update a file that not exists
+  if(validate_file_exists(token) != 0) {
+    puts(FILE_DOES_NOT_EXISTS);
+    return FILE_DOES_NOT_EXISTS;
+  }
+  // Count the position where the name argument starts.
+  // strlen("update") + account number length + one space
+  starts_at = 6 + strlen(token) + 1;
+  if ( starts_at >= strlen(buffentrada) ) {
+    puts(INSUFFICIENT_ARGUMENTS);
+    return INSUFFICIENT_ARGUMENTS;
+  }
+  
+  // Alloc memory to store name argument
+  name = (char *) calloc(strlen(buffentrada) - starts_at, sizeof(char));
+  // Copy the name argument to the name buffer
+  memcpy( name, buffentrada + starts_at, (strlen(buffentrada) - starts_at) * sizeof(char) );
+  
+  if ( write_file(token, name) < 0 ) {
+    return ERROR_ON_FILE;
+  }
+
+  return UPDATE_OK;
+}
+
+char *handle_delete(char *token) {
+  /*
+  * Function to handle delete command
+  * Arguments:
+  *       token         - the token pointer to get the next argument
+  * Return:
+  *       message       - A message that could be an error or a successful message
+  */
+
+  // take the second argument, the account number
+  token = strtok(NULL, " ");
+  // When just 'insert' was sent to the server
+  if (!token) {
+    puts(INSUFFICIENT_ARGUMENTS);
+    return INSUFFICIENT_ARGUMENTS;
+  }
+  // When sent an invalid accoind number
+  if(!validate_account_number(token)) {
+    puts(INVALID_ACC_NUMBER);
+    return INVALID_ACC_NUMBER;
+  }
+  // Could not delete a file that not exists
+  if(validate_file_exists(token) != 0) {
+    puts(FILE_DOES_NOT_EXISTS);
+    return FILE_DOES_NOT_EXISTS;
+  }
+
+  if ( delete_file(token) != 0) {
+    puts(ERROR_ON_FILE);
+    return ERROR_ON_FILE;
+  }
+
+  return DELETE_OK;
 }
 
 void handle_client_connection(int new_fd) {
@@ -247,6 +372,16 @@ void handle_client_connection(int new_fd) {
         printf("Error sending response to client.\n");  
       }
     }
+    else if(strcmp(token,"UPDATE") == 0){
+      puts("Handling update command");
+      snprintf(buffsalida, MAXDATASIZE - 1, "%s", handle_update(buffentrada, token));
+      puts(buffsalida);
+
+      // Send the message response to client
+      if (send(new_fd, buffsalida, strlen(buffsalida), 0) == -1) {
+        printf("Error sending response to client.\n");  
+      }
+    }
     else if(strcmp(token,"SELECT") == 0){
       //Obtiene el siguiente token, son dos palabras en total 
       token = strtok(NULL, " ");
@@ -254,18 +389,34 @@ void handle_client_connection(int new_fd) {
       puts(token);
       //Abrir archivo y enviarlo
     }
+    else if(strcmp(token,"DELETE") == 0){
+      puts("Handling delete command");
+      snprintf(buffsalida, MAXDATASIZE - 1, "%s", handle_delete(token));
+      puts(buffsalida);
+
+      // Send the message response to client
+      if (send(new_fd, buffsalida, strlen(buffsalida), 0) == -1) {
+        printf("Error sending response to client.\n");  
+      }
+    }
     else if(strcmp(token,"EXIT") == 0){
       printf("Comando exit\n");
-      puts(token);
       break;
     }
     else{
-      printf("comando no reconocido\n");
-      //Comando no reconocido
+      if (token) {
+        printf("--%s--\n", token);
+        strcpy(buffsalida, "Comando no reconocido");
+        puts(buffsalida);
+        // Send the message response to client
+        if (send(new_fd, buffsalida, strlen(buffsalida), 0) == -1) {
+          printf("Error sending response to client.\n");  
+        }
+      }
     }
     // Flushing buffer
-    memset(buffentrada, '\0', sizeof buffentrada);
-    memset(buffsalida, '\0', sizeof buffsalida);
+    memset(buffentrada, '\0', strlen(buffentrada));
+    memset(buffsalida, '\0', strlen(buffsalida));
   }
 }
 

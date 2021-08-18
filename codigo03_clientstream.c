@@ -163,7 +163,6 @@ int main(int argc, char *argv[]){
       perror("Error reading response from server\n");
       exit(-1);
     }
-    printf("%d\n", numbytes);
     puts(buffsalida);
 
     // Flushing buffer

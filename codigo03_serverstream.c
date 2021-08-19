@@ -161,6 +161,31 @@ int write_file(char *filename, char *content) {
   return 1;
 }
 
+char * read_file(char *filename) {
+  /*
+  * Function to read a file
+  * Arguments:
+  *       filename   - The filename
+  * Return:
+  *       content     - What the file contain
+  */
+  char *filename_with_dir = (char *) calloc(MAXDATASIZE, sizeof(char));
+  char *content = (char *) calloc(MAXDATASIZE, sizeof(char));
+  // Concat dir with filename
+  strcat(strcpy(filename_with_dir, dir), filename);
+  FILE *selected_file = fopen(filename_with_dir, "r");
+
+  if (selected_file == NULL) {
+    puts(ERROR_ON_FILE);
+    return ERROR_ON_FILE;
+  }
+
+  fgets(content,MAXDATASIZE,selected_file);
+  fprintf(out_file, "%s", content);
+  fclose(out_file);
+  return content;
+}
+
 int delete_file(char *filename) {
   /*
   * Function to delete a file
@@ -242,6 +267,38 @@ char *handle_insert(char * buffentrada, char *token) {
   }
 
   return INSERT_OK;
+}
+
+char *handle_select(char * buffentrada, char *token) {
+  /*
+  * Function to handle select command
+  * validating there is all the arguments needed
+  * Arguments:
+  *       buffentrada   - The original string received by the server
+  *       token         - the token pointer to get the next argument
+  * Return:
+  *       message       - A message that could be an error or a the content of the file selected
+  */
+
+  char *SELECT_CONT; 
+  int starts_at = 0;
+
+  // take the second argument, the account number
+  token = strtok(NULL, " ");
+  // When just 'select' was sent to the server
+  if (!token) {
+    puts(INSUFFICIENT_ARGUMENTS);
+    return INSUFFICIENT_ARGUMENTS;
+  }
+  // When sent an invalid accoind number
+  if(!validate_account_number(token)) {
+    puts(INVALID_ACC_NUMBER);
+    return INVALID_ACC_NUMBER;
+  }
+  
+  SELECT_CONT = read_file(token);
+
+  return SELECT_CONT;
 }
 
 char *handle_update(char *buffentrada, char *token) {
@@ -383,11 +440,14 @@ void handle_client_connection(int new_fd) {
       }
     }
     else if(strcmp(token,"SELECT") == 0){
-      //Obtiene el siguiente token, son dos palabras en total 
-      token = strtok(NULL, " ");
-      printf("Comando select\n");
-      puts(token);
-      //Abrir archivo y enviarlo
+      puts("Handling select command");
+      snprintf(buffsalida, MAXDATASIZE - 1, "%s", handle_insert(buffentrada, token));
+      puts(buffsalida);
+
+      // Send the message response to client
+      if (send(new_fd, buffsalida, strlen(buffsalida), 0) == -1) {
+        printf("Error sending response to client.\n");  
+      }
     }
     else if(strcmp(token,"DELETE") == 0){
       puts("Handling delete command");

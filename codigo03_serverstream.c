@@ -181,8 +181,8 @@ char * read_file(char *filename) {
   }
 
   fgets(content,MAXDATASIZE,selected_file);
-  fprintf(out_file, "%s", content);
-  fclose(out_file);
+  fprintf(selected_file, "%s", content);
+  fclose(selected_file);
   return content;
 }
 
